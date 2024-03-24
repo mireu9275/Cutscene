@@ -1,5 +1,7 @@
 plugins {
     id 'java'
+    id 'org.jetbrains.kotlin.jvm'
+    id "com.github.johnrengelman.shadow" version "8.1.1"
 }
 
 group = 'kr.eme.plugin'
@@ -15,17 +17,20 @@ repositories {
         name = "sonatype"
         url = "https://oss.sonatype.org/content/groups/public/"
     }
+    maven {
+        url = "https://repo.dmulloy2.net/repository/public"
+    }
 }
 
 dependencies {
     compileOnly "io.papermc.paper:paper-api:1.20.2-R0.1-SNAPSHOT"
+    compileOnly "com.comphenix.protocol:ProtocolLib:5.2.0-SNAPSHOT"
+    implementation "org.jetbrains.kotlin:kotlin-stdlib-jdk8"
 }
 
 def targetJavaVersion = 17
 java {
     def javaVersion = JavaVersion.toVersion(targetJavaVersion)
-    sourceCompatibility = javaVersion
-    targetCompatibility = javaVersion
     if (JavaVersion.current() < javaVersion) {
         toolchain.languageVersion = JavaLanguageVersion.of(targetJavaVersion)
     }
@@ -45,5 +50,24 @@ processResources {
     filteringCharset 'UTF-8'
     filesMatching('paper-plugin.yml') {
         expand props
+    }
+}
+kotlin {
+    jvmToolchain(17)
+}
+
+jar {
+    archiveFileName = 'Cutscene.jar'
+    destinationDirectory = file("D:\\minecraft\\1. 버킷 관련\\1.20.2 paper_dev\\plugins")
+    manifest {
+        attributes 'Main-Class' : 'kr.eme.plugin.cutscene.Cutscene'
+    }
+}
+
+shadowJar {
+    archiveBaseName = 'Cutscene'
+    destinationDirectory = file("D:\\minecraft\\1. 버킷 관련\\1.20.2 paper_dev\\plugins")
+    manifest {
+        attributes 'Main-Class' : 'kr.eme.plugin.cutscene.Cutscene'
     }
 }
