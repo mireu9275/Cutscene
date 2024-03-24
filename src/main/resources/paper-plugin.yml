@@ -1,0 +1,4 @@
+name: Cutscene
+version: '${version}'
+main: kr.eme.plugin.cutscene.Cutscene
+api-version: '1.20'
