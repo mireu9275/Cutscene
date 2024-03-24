@@ -39,6 +39,8 @@ object CutsceneManager {
         }
         //플레이어의 위치를 불러옵니다.
         val location = player.location
+        location.y += 1;
+
         //플레이어의 위치에 아머스탠드(마커화)엔티티 를 생성합니다.
         player.world.spawn(location, ArmorStand::class.java).apply {
             isVisible = false               // 보이지 않게 설정
@@ -73,6 +75,8 @@ object CutsceneManager {
      */
     fun switchToViewpoint(player: Player, entityId: Int) {
         try {
+            //오류 발견 : 서버 내에 해당 엔티티가 삭제되었는데도 진행이 되면 안됨.
+
             //EntityId의 카메라 패킷 가져오기
             val cameraPacket = PacketContainer(PacketType.Play.Server.CAMERA).apply {
                 integers.write(0, entityId)
