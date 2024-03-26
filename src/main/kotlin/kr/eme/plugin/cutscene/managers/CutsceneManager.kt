@@ -26,6 +26,13 @@ object CutsceneManager {
     fun getCamera(name: String) = cameraMap[name]
 
     /**
+     * 현재 등록되어있는 카메라 리스트를 가져옵니다.
+     *
+     * @return List<String>
+     */
+    fun getCameraList() : List<String> = cameraMap.keys.toList()
+
+    /**
      * 카메라 엔티티 생성
      *
      * @param name
@@ -75,7 +82,7 @@ object CutsceneManager {
      */
     fun switchToViewpoint(player: Player, entityId: Int) {
         try {
-            //오류 발견 : 서버 내에 해당 엔티티가 삭제되었는데도 진행이 되면 안됨.
+            //오류 발견 : 서버 내에 해당 엔티티가 삭제되었는데도 진행이 됨,
 
             //EntityId의 카메라 패킷 가져오기
             val cameraPacket = PacketContainer(PacketType.Play.Server.CAMERA).apply {

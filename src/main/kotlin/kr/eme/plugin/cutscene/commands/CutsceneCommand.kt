@@ -1,7 +1,10 @@
 package kr.eme.plugin.cutscene.commands
 
+import kr.eme.plugin.cutscene.events.CutsceneEndEvent
+import kr.eme.plugin.cutscene.events.CutsceneStartEvent
 import kr.eme.plugin.cutscene.main
 import kr.eme.plugin.cutscene.managers.CutsceneManager
+import org.bukkit.Bukkit
 import org.bukkit.command.Command
 import org.bukkit.command.CommandExecutor
 import org.bukkit.command.CommandSender
@@ -20,6 +23,7 @@ object CutsceneCommand: CommandExecutor {
                 "exit" -> exitCutscene(sender)
                 "view" -> enterCutscene(args, sender)
                 "set" -> setCutscene(args, sender)
+                "list" -> viewCutsceneList(sender)
                 else -> usage(sender)
             }
 
@@ -61,6 +65,10 @@ object CutsceneCommand: CommandExecutor {
                 player.sendMessage("볼 수 없는 컷신입니다.")
                 return
             }
+            //이벤트 등록
+            val startEvent = CutsceneStartEvent(player)
+            Bukkit.getPluginManager().callEvent(startEvent)
+
             CutsceneManager.switchToViewpoint(player,cameraEntityId)
             player.sendMessage("정상적으로 $name 컷신으로 변경되었습니다.")
         } catch (e: Exception) {
@@ -75,6 +83,10 @@ object CutsceneCommand: CommandExecutor {
      */
     private fun exitCutscene(player: Player) {
         try {
+            //이벤트 등록
+            val endEvent = CutsceneEndEvent(player)
+            Bukkit.getPluginManager().callEvent(endEvent)
+
             CutsceneManager.switchToViewpoint(player, player.entityId)
             player.sendMessage("정상적으로 컷신에서 벗어났습니다.")
         } catch (e: Exception) {
@@ -99,5 +111,21 @@ object CutsceneCommand: CommandExecutor {
        } catch (e: Exception) {
            main.warn("setView Exception : $e")
        }
+    }
+
+    private fun viewCutsceneList(player: Player) {
+        try {
+            val list = CutsceneManager.getCameraList()
+            if (list.isEmpty()) {
+                player.sendMessage("등록된 컷신이 없습니다.")
+                return
+            }
+            player.sendMessage("등록된 컷신 목록")
+            list.forEach {name ->
+                player.sendMessage(" - $name")
+            }
+        } catch (e: Exception) {
+            main.warn("viewCutsceneList Exception : $e")
+        }
     }
 }
