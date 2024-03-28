@@ -3,84 +3,82 @@ package kr.eme.plugin.cutscene.managers
 import com.comphenix.protocol.PacketType
 import com.comphenix.protocol.events.PacketContainer
 import kr.eme.plugin.cutscene.main
+import kr.eme.plugin.cutscene.objects.CutsceneData
+import kr.eme.plugin.cutscene.objects.Transition
 import kr.eme.plugin.cutscene.protocolManager
+import org.bukkit.Location
 import org.bukkit.entity.ArmorStand
 import org.bukkit.entity.Player
 
 object CutsceneManager {
-    private val cameraMap = HashMap<String, ArmorStand>()
-
-    /**
-     * 해당 이름의 카메라가 있는지 확인합니다.
-     *
-     * @param name
-     * @return
-     */
-    private fun containsCamera(name: String): Boolean = cameraMap.containsKey(name)
-
-    /**
-     * 현재 등록되어있는 카메라를 가져옵니다.
-     *
-     * @param name
-     */
-    fun getCamera(name: String) = cameraMap[name]
-
-    /**
-     * 현재 등록되어있는 카메라 리스트를 가져옵니다.
-     *
-     * @return List<String>
-     */
-    fun getCameraList() : List<String> = cameraMap.keys.toList()
-
-    /**
-     * 카메라 엔티티 생성
-     *
-     * @param name
-     * @param player
-     */
-    fun createCameraEntity(name: String, player: Player) {
-        //만약 이미 동일한 이름으로 카메라 엔티티가 존재 하다면
-        //해당 위치의 엔티티를 삭제 후 재실행함.
-        if (containsCamera(name)) {
-            removeCamera(name)
-        }
-        //플레이어의 위치를 불러옵니다.
-        val location = player.location
-        location.y += 1;
-
-        //플레이어의 위치에 아머스탠드(마커화)엔티티 를 생성합니다.
-        player.world.spawn(location, ArmorStand::class.java).apply {
-            isVisible = false               // 보이지 않게 설정
-            isCustomNameVisible = false     // 이름표가 보이지 않게 설정
-            isInvulnerable = true           // 무적 설정
-            setGravity(false)               // 중력 영향 받지 않음 설정
-            isMarker = true                 // 클릭 받지 않음 설정
-        }.also { cameraMap[name] = it }
+    private val cutscenes = mutableListOf<CutsceneData>()
+    fun getCutscene(name: String): CutsceneData? = cutscenes.find { it.name == name }
+    fun addCutscene(name: String) {
+        val cutscene = CutsceneData(name)
+        cutscenes.add(cutscene)
+    }
+    fun addSequence(name: String, seq: Int, location: Location) {
+        val cutscene = getCutscene(name)
+        cutscene?.addSequence(seq, location)
+    }
+    fun getSequenceLocation(name: String, seq: Int): Location? {
+        val cutscene = getCutscene(name)
+        return cutscene?.getSequenceLocation(seq)
     }
 
-    /**
-     * 현재 등록되어있는 카메라를 삭제합니다.
-     *
-     * @param name
-     */
-    private fun removeCamera(name: String) {
-        //cameraMap 에 없으면 return
-        if(!containsCamera(name)) return
-        cameraMap[name]?.let {
-            // 게임 월드에서 엔티티 삭제
-            it.remove()
-            // cameraMap 에서 삭제
-            cameraMap.remove(name)
-        }
+    fun getTransition(name: String): List<Transition> {
+        val cutscene = getCutscene(name)
+        return cutscene?.transitions ?: emptyList()
+    }
+    fun addTransition(name: String, transition: Transition) {
+        val cutscene = getCutscene(name)
+        cutscene?.addTransition(transition)
     }
 
-    /**
-     * 선택한 엔티티로 시점을 옮깁니다.
-     *
-     * @param player
-     * @param entityId
-     */
-    fun switchToViewpoint(player: Player, entityId: Int) {
+    fun playCutscene(player: Player, name: String) {
+        val cutscene = getCutscene(name) ?: return
+        val startLoc = cutscene.getSequenceLocation(0) ?: return
+
+        // 시작 위치에 아머 스탠드 소환
+        val armorStand = player.world.spawn(startLoc, ArmorStand::class.java).apply {
+            isVisible = false
+            isCustomNameVisible = false
+            isInvulnerable = true
+            setGravity(false)
+            isMarker = true
+        }
+
+        // 플레이어 시점을 아머 스탠드로 변경
+        switchToViewpoint(player, armorStand.entityId)
+
+        // 아머 스탠드를 이동시키면서 컷신 재생
+        cutscene.transitions.forEach { transition ->
+            val startLocation = cutscene.getSequenceLocation(transition.startSeq) ?: return@forEach
+            val endLoc = cutscene.getSequenceLocation(transition.endSeq) ?: return@forEach
+            val time = transition.time
+
+            player.sendMessage("Moving from sequence ${transition.startSeq} to ${transition.endSeq} in $time ticks")
+
+            val deltaX = (endLoc.x - startLocation.x) / time
+            val deltaY = (endLoc.y - startLocation.y) / time
+            val deltaZ = (endLoc.z - startLocation.z) / time
+
+            for (i in 1..time) {
+                val newLoc = Location(
+                    startLocation.world,
+                    startLocation.x + deltaX * i,
+                    startLocation.y + deltaY * i,
+                    startLocation.z + deltaZ * i
+                )
+                armorStand.teleport(newLoc)
+                Thread.sleep(50)
+            }
+        }
+        // 컷신 종료 후 아머 스탠드 제거
+        armorStand.remove()
+    }
+
+    private fun switchToViewpoint(player: Player, entityId: Int) {
         try {
             //오류 발견 : 서버 내에 해당 엔티티가 삭제되었는데도 진행이 됨,
 

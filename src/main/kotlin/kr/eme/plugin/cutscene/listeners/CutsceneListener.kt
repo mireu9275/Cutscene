@@ -2,6 +2,7 @@ package kr.eme.plugin.cutscene.listeners
 
 import kr.eme.plugin.cutscene.events.CutsceneEndEvent
 import kr.eme.plugin.cutscene.events.CutsceneStartEvent
+import kr.eme.plugin.cutscene.main
 import kr.eme.plugin.cutscene.managers.ViewingPlayerManager
 import org.bukkit.entity.ArmorStand
 import org.bukkit.entity.Player
@@ -10,21 +11,22 @@ import org.bukkit.event.Listener
 import org.bukkit.event.entity.EntityDamageByEntityEvent
 import org.bukkit.event.player.PlayerInteractEntityEvent
 
-object CutsceneListener: Listener {
+object CutsceneListener : Listener {
 
     @EventHandler
     fun onCutsceneStart(event: CutsceneStartEvent) {
-        ViewingPlayerManager.startViewing(event.player)
+        main.info("${event.player.name} 님이 [${event.cutsceneName}] 컷신에 들어갔습니다.")
     }
 
     @EventHandler
     fun onCutsceneEnd(event: CutsceneEndEvent) {
-        ViewingPlayerManager.stopViewing(event.player)
+        main.info("${event.player.name} 님이 컷신에서 빠져나갔습니다.")
     }
 
     @EventHandler
     fun onPlayerInteract(event: PlayerInteractEntityEvent) {
-        if (ViewingPlayerManager.isViewing(event.player) && event.rightClicked is ArmorStand) {
+        val player = event.player
+        if (ViewingPlayerManager.isViewing(player) && event.rightClicked is ArmorStand) {
             event.isCancelled = true
         }
     }

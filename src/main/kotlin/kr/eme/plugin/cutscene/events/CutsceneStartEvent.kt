@@ -4,11 +4,13 @@ import org.bukkit.entity.Player
 import org.bukkit.event.Event
 import org.bukkit.event.HandlerList
 
-class CutsceneStartEvent(val player: Player) : Event() {
+class CutsceneStartEvent(
+    val player: Player,
+    val cutsceneName: String
+) : Event() {
     companion object {
-        private val handlers = HandlerList()
         @JvmStatic
-        fun getHandlerList(): HandlerList = handlers
+        val handlerList = HandlerList()
     }
-    override fun getHandlers(): HandlerList = handlers
+    override fun getHandlers(): HandlerList = handlerList
 }
