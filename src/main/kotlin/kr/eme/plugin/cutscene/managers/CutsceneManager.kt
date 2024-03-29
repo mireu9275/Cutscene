@@ -26,56 +26,73 @@ object CutsceneManager {
         return cutscene?.getSequenceLocation(seq)
     }
 
-    fun getTransition(name: String): List<Transition> {
+    fun getTransition(name: String, index: Int): Transition? {
         val cutscene = getCutscene(name)
-        return cutscene?.transitions ?: emptyList()
+        return cutscene?.getTransition(index)
     }
-    fun addTransition(name: String, transition: Transition) {
+    fun addTransition(name: String, index: Int, transition: Transition) {
         val cutscene = getCutscene(name)
-        cutscene?.addTransition(transition)
+        cutscene?.addTransition(index, transition)
     }
 
     fun playCutscene(player: Player, name: String) {
         val cutscene = getCutscene(name) ?: return
-        val startLoc = cutscene.getSequenceLocation(0) ?: return
+        val armorStands = mutableListOf<ArmorStand>()
 
-        // 시작 위치에 아머 스탠드 소환
-        val armorStand = player.world.spawn(startLoc, ArmorStand::class.java).apply {
-            isVisible = false
-            isCustomNameVisible = false
-            isInvulnerable = true
-            setGravity(false)
-            isMarker = true
+        // 각 순번마다 아머 스탠드 소환
+        cutscene.getSequenceLocations().forEach { (seq, location) ->
+            val armorStand = player.world.spawn(location, ArmorStand::class.java).apply {
+                isVisible = false
+                isCustomNameVisible = false
+                isInvulnerable = true
+                setGravity(false)
+                isMarker = true
+            }
+            armorStands.add(armorStand)
         }
 
-        // 플레이어 시점을 아머 스탠드로 변경
-        switchToViewpoint(player, armorStand.entityId)
+        // 시작 위치의 아머 스탠드로 시점 변경
+        val startArmorStand = armorStands.firstOrNull()
+        if (startArmorStand != null) switchToViewpoint(player, startArmorStand.entityId)
 
-        // 아머 스탠드를 이동시키면서 컷신 재생
-        cutscene.transitions.forEach { transition ->
-            val startLocation = cutscene.getSequenceLocation(transition.startSeq) ?: return@forEach
-            val endLoc = cutscene.getSequenceLocation(transition.endSeq) ?: return@forEach
-            val time = transition.time
+        // 트랜잭션 확인
+        val transitions = cutscene.getTransitions()
+        if (transitions.isEmpty()) {
+            val startArmorStand = armorStands.firstOrNull()
+            if (startArmorStand != null) {
+                switchToViewpoint(player, startArmorStand.entityId)
+                val time = cutscene.getTransition(0)?.time ?: 20L // 첫 번째 트랜지션의 시간 사용, 없으면 기본값 20틱 사용
+                Thread.sleep(time * 50L)
+            }
+        } else {
+            // 트랜잭션이 있는 경우, 시점 간 이동 처리
+            val sortedTransitions = transitions.toSortedMap()
+            sortedTransitions.forEach { (index, transition) ->
+                val startArmorStand = armorStands.getOrNull(transition.startSeq)
+                val endArmorStand = armorStands.getOrNull(transition.endSeq)
+                if (startArmorStand != null && endArmorStand != null) {
+                    val startLocation = startArmorStand.location
+                    val endLocation = endArmorStand.location
+                    val time = transition.time
 
-            player.sendMessage("Moving from sequence ${transition.startSeq} to ${transition.endSeq} in $time ticks")
+                    // 시작 시점으로 이동
+                    switchToViewpoint(player, startArmorStand.entityId)
+                    Thread.sleep(time * 50L) // 틱 단위로 변환하여 대기
 
-            val deltaX = (endLoc.x - startLocation.x) / time
-            val deltaY = (endLoc.y - startLocation.y) / time
-            val deltaZ = (endLoc.z - startLocation.z) / time
-
-            for (i in 1..time) {
-                val newLoc = Location(
-                    startLocation.world,
-                    startLocation.x + deltaX * i,
-                    startLocation.y + deltaY * i,
-                    startLocation.z + deltaZ * i
-                )
-                armorStand.teleport(newLoc)
-                Thread.sleep(50)
+                    // 끝 시점으로 이동
+                    val nextIndex = sortedTransitions.keys.firstOrNull { it > index }
+                    if (nextIndex != null) {
+                        val nextTransition = sortedTransitions[nextIndex]
+                        if (nextTransition != null) {
+                            val moveTime = nextTransition.time
+                            moveViewpoint(player, startLocation, endLocation, moveTime)
+                        }
+                    }
+                }
             }
         }
         // 컷신 종료 후 아머 스탠드 제거
-        armorStand.remove()
+        armorStands.forEach { it.remove() }
     }
 
     private fun switchToViewpoint(player: Player, entityId: Int) {
@@ -90,6 +107,23 @@ object CutsceneManager {
             protocolManager.sendServerPacket(player, cameraPacket)
         } catch (e: Exception) {
             main.warn("switchToViewpoint Exception : $e")
+        }
+    }
+
+    private fun moveViewpoint(player: Player, startLocation: Location, endLocation: Location, time: Long) {
+        val deltaX = (endLocation.x - startLocation.x) / time
+        val deltaY = (endLocation.y - startLocation.y) / time
+        val deltaZ = (endLocation.z - startLocation.z) / time
+
+        for (i in 1..time) {
+            val newLoc = Location(
+                startLocation.world,
+                startLocation.x + deltaX * i,
+                startLocation.y + deltaY * i,
+                startLocation.z + deltaZ * i
+            )
+            player.teleport(newLoc)
+            Thread.sleep(50)
         }
     }
 }
